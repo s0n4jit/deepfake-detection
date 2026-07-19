@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+# Limit parallel compilation to avoid compiler memory exhaustion during dlib build
+ENV CMAKE_BUILD_PARALLEL_LEVEL=1
+ENV MAKEFLAGS="-j1"
+
 # Copy requirements and install CPU-optimized packages
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
