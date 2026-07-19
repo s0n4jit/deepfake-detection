@@ -14,6 +14,7 @@ Internship project (cybersecurity + ML), 3-day build. Detects deepfake face imag
 - `rules.md` — what to achieve, what to avoid, error handling table, AI-assistance boundaries, accuracy-honesty rules
 - `phases.md` — the 8-phase execution plan with exit checkpoints
 - `design.md` — frontend visual direction, tokens, layout, copy voice
+- `challenges_and_scaling.md` — details on package compilation conflicts, memory bottlenecks, and VPS scaling roadmap
 
 ---
 
