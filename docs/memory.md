@@ -36,7 +36,7 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 
 ## Current Status
 
-**Phase:** Phase 0 complete. Proceeding to Phase 1.
+**Phase:** Phase 1 complete. Proceeding to Phase 2.
 
 **Last updated:** 2026-07-19
 
@@ -48,9 +48,9 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 - [x] Phase-by-phase execution plan written
 - [x] Frontend design direction written
 - [x] Phase 0 — Environment & repo setup
+- [x] Phase 1 — Dataset preparation
 
 ### Not Started
-- [ ] Phase 1 — Dataset preparation
 - [ ] Phase 2 — Classical pipeline (FAST+BRIEF+RF)
 - [ ] Phase 3 — CNN pipeline (transfer learning)
 - [ ] Phase 4 — Comparison & explainability
@@ -64,7 +64,7 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 
 Track anything unresolved here so it doesn't get silently forgotten between sessions.
 
-- None (all Phase 0 blockers resolved).
+- None.
 
 ---
 
@@ -81,5 +81,13 @@ At the end of each work session:
 
 ## Results So Far
 
-*(empty — fill in once Phase 2/3 produce real numbers)*
+### Dataset Stats (Phase 1)
+- Total images checked: 7230
+- Dropped (no face): 2514
+- Dropped (non-frontal): 1722
+- Valid REAL images: 403
+- Valid FAKE images: 2591
+- Balanced Dataset: 806 images total (403 REAL / 403 FAKE)
+- Split: 564 train images (70%), 242 test images (30%)
+
 
