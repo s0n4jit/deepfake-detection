@@ -9,20 +9,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const toggleBtns = document.querySelectorAll(".toggle-btn");
     const scanProgress = document.getElementById("scan-progress");
     const resultsPanel = document.getElementById("results-panel");
-    const errorBanner = document.getElementById("error-banner");
-    const errorText = document.getElementById("error-text");
-    
-    // Result elements
-    const verdictText = document.getElementById("verdict-text");
-    const verdictConfidence = document.getElementById("verdict-confidence");
-    const rowClassical = document.getElementById("row-classical");
-    const valClassical = document.getElementById("val-classical");
-    const rowCnn = document.getElementById("row-cnn");
-    const valCnn = document.getElementById("val-cnn");
-
-    let selectedFile = null;
-    let selectedModel = "both"; // Default model parameter
-    let detectedBox = null;     // Bounding box from API response
+     const errorBanner = document.getElementById("error-banner");
+     const errorText = document.getElementById("error-text");
+     const resetBtn = document.getElementById("reset-btn");
+     
+     // Result elements
+     const verdictText = document.getElementById("verdict-text");
+     const verdictConfidence = document.getElementById("verdict-confidence");
+     const rowClassical = document.getElementById("row-classical");
+     const valClassical = document.getElementById("val-classical");
+     const rowCnn = document.getElementById("row-cnn");
+     const valCnn = document.getElementById("val-cnn");
+ 
+     let selectedFile = null;
+     let selectedModel = "both"; // Default model parameter
+     let detectedBox = null;     // Bounding box from API response
 
     // Handle Drag & Drop behavior
     dropZone.addEventListener("dragover", (e) => {
@@ -55,6 +56,21 @@ document.addEventListener("DOMContentLoaded", () => {
         if (fileInput.files.length > 0) {
             handleFile(fileInput.files[0]);
         }
+    });
+
+    // Reset button functionality
+    resetBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // Avoid triggering dropZone click
+        selectedFile = null;
+        fileInput.value = "";
+        imagePreview.src = "";
+        previewContainer.style.display = "none";
+        uploadPrompt.style.display = "block";
+        scanBtn.setAttribute("disabled", "true");
+        detectedBox = null;
+        clearCanvas();
+        resultsPanel.style.display = "none";
+        errorBanner.style.display = "none";
     });
 
     // Toggle button selectors

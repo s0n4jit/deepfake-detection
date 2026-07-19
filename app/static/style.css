@@ -214,6 +214,31 @@ body {
     background-color: #1f455b;
 }
 
+/* Reset button styling */
+.reset-button {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 10px 0;
+    cursor: pointer;
+    text-align: center;
+    transition: color 0.2s ease;
+    outline: none;
+}
+
+.reset-button:hover {
+    color: var(--signal-fake);
+}
+
+.reset-button:focus-visible {
+    outline: 2px solid var(--accent);
+}
+
 /* Progress bar animation */
 .progress-bar {
     width: 100%;
