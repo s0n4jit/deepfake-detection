@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepfake Image Detector — Forensic Analysis</title>
+    <!-- Google Fonts: Inter and IBM Plex Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <main class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="page-title">DEEPFAKE DETECTION</h1>
+            <span class="report-label">LAB VERDICT / FORENSIC ANALYSIS</span>
+        </header>
+        
+        <hr class="divider">
+
+        <!-- Main Form -->
+        <section class="analysis-section">
+            <!-- Upload Drop Zone -->
+            <div id="drop-zone" class="upload-zone">
+                <input type="file" id="file-input" accept=".jpg,.jpeg,.png" style="display: none;">
+                <p id="upload-prompt">Drop image here or <span class="browse-link">click to browse</span></p>
+                <div id="preview-container" class="preview-container" style="display: none;">
+                    <div class="image-wrapper">
+                        <img id="image-preview" src="" alt="Uploaded image preview">
+                        <canvas id="scan-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Selection Toggle Buttons -->
+            <div class="control-group">
+                <span class="control-label">SELECT DETECTOR PIPELINE</span>
+                <div class="pipeline-selector">
+                    <button type="button" class="toggle-btn active" data-model="both">BOTH PIPELINES</button>
+                    <button type="button" class="toggle-btn" data-model="classical">CLASSICAL (FAST+BRIEF+RF)</button>
+                    <button type="button" class="toggle-btn" data-model="cnn">CNN (RESNET18)</button>
+                </div>
+            </div>
+
+            <!-- Scan Button -->
+            <button type="button" id="scan-btn" class="scan-button" disabled>SCAN IMAGE</button>
+        </section>
+
+        <hr class="divider">
+
+        <!-- Progress Indicator -->
+        <div id="scan-progress" class="progress-bar" style="display: none;">
+            <div class="progress-line"></div>
+        </div>
+
+        <!-- Result / Error Panel -->
+        <section id="results-panel" class="results-panel" style="display: none;">
+            <h2 class="section-label">ANALYSIS METRICS</h2>
+            
+            <div class="verdict-card">
+                <div class="verdict-header">
+                    <span id="verdict-text" class="verdict-word">FAKE</span>
+                    <span id="verdict-confidence" class="verdict-percentage">94.2%</span>
+                </div>
+                
+                <div class="model-breakdown">
+                    <div id="row-classical" class="metric-row">
+                        <span class="model-name">Classical (FAST+BRIEF+RF)</span>
+                        <span id="val-classical" class="model-score">-</span>
+                    </div>
+                    <div id="row-cnn" class="metric-row">
+                        <span class="model-name">CNN (ResNet18)</span>
+                        <span id="val-cnn" class="model-score">-</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Error Banner -->
+        <div id="error-banner" class="error-banner" style="display: none;">
+            <p id="error-text"></p>
+        </div>
+    </main>
+    <script src="/static/script.js"></script>
+</body>
+</html>

@@ -36,7 +36,7 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 
 ## Current Status
 
-**Phase:** Phase 4 complete. Proceeding to Phase 5.
+**Phase:** Phase 5 complete. Proceeding to Phase 6.
 
 **Last updated:** 2026-07-20
 
@@ -52,11 +52,12 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 - [x] Phase 2 — Classical pipeline (FAST+BRIEF+RF)
 - [x] Phase 3 — CNN pipeline (transfer learning)
 - [x] Phase 4 — Comparison & explainability
+- [x] Phase 5 — Web app (backend + frontend)
 
 ### Not Started
-- [ ] Phase 5 — Web app (backend + frontend)
 - [ ] Phase 6 — Dockerize & deploy
 - [ ] Phase 7 — Report & submission
+
 
 ---
 
