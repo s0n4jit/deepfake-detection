@@ -36,7 +36,7 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 
 ## Current Status
 
-**Phase:** Phase 3 complete. Proceeding to Phase 4.
+**Phase:** Phase 4 complete. Proceeding to Phase 5.
 
 **Last updated:** 2026-07-20
 
@@ -51,9 +51,9 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 - [x] Phase 1 — Dataset preparation
 - [x] Phase 2 — Classical pipeline (FAST+BRIEF+RF)
 - [x] Phase 3 — CNN pipeline (transfer learning)
+- [x] Phase 4 — Comparison & explainability
 
 ### Not Started
-- [ ] Phase 4 — Comparison & explainability
 - [ ] Phase 5 — Web app (backend + frontend)
 - [ ] Phase 6 — Dockerize & deploy
 - [ ] Phase 7 — Report & submission
@@ -120,6 +120,26 @@ At the end of each work session:
   - True Positives (Fake as Fake): 111
 - Training Time: 174.65 seconds (CPU)
 - Average Inference Time per image: 30.78 ms
+
+### Comparison & Explainability (Phase 4)
+- **Error overlap in test set (242 images):**
+  - Both correct (Real): 46 occurrences
+  - Both correct (Fake): 71 occurrences
+  - Both wrong (Real as Fake): 17 occurrences
+  - Both wrong (Fake as Real): 14 occurrences
+  - CNN correct, RF wrong: 49 occurrences
+  - RF correct, CNN wrong: 45 occurrences
+- **Classical feature importance (top regions):**
+  - nose: 22.38%
+  - whole_face: 21.56%
+  - right_eyebrow: 14.12%
+  - mouth: 11.24%
+  - right_eye: 9.95%
+  - left_eye: 7.79%
+  - left_eyebrow: 7.26%
+  - inner_mouth: 5.69%
+- **CNN explainability:** Generated and saved saliency overlay heatmaps under `docs/explainability/`.
+
 
 
 
