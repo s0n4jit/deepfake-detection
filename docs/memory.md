@@ -36,9 +36,9 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 
 ## Current Status
 
-**Phase:** Phase 1 complete. Proceeding to Phase 2.
+**Phase:** Phase 2 complete. Proceeding to Phase 3.
 
-**Last updated:** 2026-07-19
+**Last updated:** 2026-07-20
 
 ### Done
 - [x] Project idea selected and scoped (deepfake detection, classical vs CNN comparison)
@@ -49,9 +49,9 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 - [x] Frontend design direction written
 - [x] Phase 0 — Environment & repo setup
 - [x] Phase 1 — Dataset preparation
+- [x] Phase 2 — Classical pipeline (FAST+BRIEF+RF)
 
 ### Not Started
-- [ ] Phase 2 — Classical pipeline (FAST+BRIEF+RF)
 - [ ] Phase 3 — CNN pipeline (transfer learning)
 - [ ] Phase 4 — Comparison & explainability
 - [ ] Phase 5 — Web app (backend + frontend)
@@ -89,5 +89,22 @@ At the end of each work session:
 - Valid FAKE images: 2591
 - Balanced Dataset: 806 images total (403 REAL / 403 FAKE)
 - Split: 564 train images (70%), 242 test images (30%)
+
+### Classical Pipeline (Phase 2)
+- Model: FAST + BRIEF + Region Grouping + Random Forest (`random_forest_v1.pkl`)
+- Train Accuracy: 97.87%
+- Test Accuracy: 66.94%
+- Test Precision: 75.47%
+- Test Recall: 59.70%
+- Test F1-Score: 66.67%
+- Confusion Matrix:
+  - True Negatives (Real as Real): 82
+  - False Positives (Real as Fake): 26
+  - False Negatives (Fake as Real): 54
+  - True Positives (Fake as Fake): 80
+- Training Time (Random Forest): 0.30 seconds
+- Total Pipeline Extraction + Training Time: 7.87 seconds
+- Average Inference Time per image: 6.31 ms
+
 
 
