@@ -1,0 +1,182 @@
+import os
+import json
+import time
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms, models
+from PIL import Image
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
+
+# Configuration
+SPLIT_PATH = "dataset/split.json"
+MODEL_EXPORT_PATH = "app/models/cnn_model_v1.pt"
+BATCH_SIZE = 16
+EPOCHS = 10
+LEARNING_RATE = 1e-3
+
+# Set device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+class DeepfakeDataset(Dataset):
+    def __init__(self, records, transform=None):
+        self.records = records
+        self.transform = transform
+        
+    def __len__(self):
+        return len(self.records)
+        
+    def __getitem__(self, idx):
+        rec = self.records[idx]
+        img_path = rec["path"]
+        label = 0 if rec["label"] == "REAL" else 1
+        
+        # Load image via PIL to match torchvision transforms expectations
+        img = Image.open(img_path).convert("RGB")
+        
+        if self.transform:
+            img = self.transform(img)
+            
+        return img, label
+
+def train_cnn():
+    with open(SPLIT_PATH, "r") as f:
+        split = json.load(f)
+        
+    train_recs = split["train"]
+    test_recs = split["test"]
+    
+    # ImageNet normalization stats
+    normalize = transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+    
+    # Data Augmentation for training, simple resize/normalize for testing
+    train_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(brightness=0.1, contrast=0.1),
+        transforms.ToTensor(),
+        normalize
+    ])
+    
+    test_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        normalize
+    ])
+    
+    train_dataset = DeepfakeDataset(train_recs, train_transform)
+    test_dataset = DeepfakeDataset(test_recs, test_transform)
+    
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
+    
+    # Load pretrained ResNet18 backbone
+    print("Loading pretrained ResNet18...")
+    model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+    
+    # Freeze all backbone layers
+    for param in model.parameters():
+        param.requires_grad = False
+        
+    # Replace the classification head
+    num_features = model.fc.in_features
+    model.fc = nn.Linear(num_features, 2)
+    model = model.to(device)
+    
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.fc.parameters(), lr=LEARNING_RATE)
+    
+    print("Starting training...")
+    start_time = time.time()
+    
+    for epoch in range(EPOCHS):
+        model.train()
+        running_loss = 0.0
+        correct = 0
+        total = 0
+        
+        for images, labels in train_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            
+            running_loss += loss.item() * images.size(0)
+            _, predicted = outputs.max(1)
+            total += labels.size(0)
+            correct += predicted.eq(labels).sum().item()
+            
+        epoch_loss = running_loss / total
+        epoch_acc = correct / total
+        print(f"Epoch {epoch+1}/{EPOCHS} - Loss: {epoch_loss:.4f} - Acc: {epoch_acc * 100:.2f}%")
+        
+    training_duration = time.time() - start_time
+    print(f"Training completed in {training_duration:.2f} seconds")
+    
+    # Evaluate model on test set
+    model.eval()
+    all_preds = []
+    all_labels = []
+    
+    inf_start = time.time()
+    with torch.no_grad():
+        for images, labels in test_loader:
+            images = images.to(device)
+            outputs = model(images)
+            _, predicted = outputs.max(1)
+            all_preds.extend(predicted.cpu().numpy())
+            all_labels.extend(labels.numpy())
+            
+    inf_duration = time.time() - inf_start
+    avg_inf_time = inf_duration / len(test_dataset)
+    
+    # Evaluate train set accuracy too (for overfitting gap check)
+    train_preds = []
+    train_labels = []
+    with torch.no_grad():
+        for images, labels in train_loader:
+            images = images.to(device)
+            outputs = model(images)
+            _, predicted = outputs.max(1)
+            train_preds.extend(predicted.cpu().numpy())
+            train_labels.extend(labels.numpy())
+            
+    train_acc = accuracy_score(train_labels, train_preds)
+    test_acc = accuracy_score(all_labels, all_preds)
+    
+    precision, recall, f1, _ = precision_recall_fscore_support(all_labels, all_preds, average='binary')
+    cm = confusion_matrix(all_labels, all_preds)
+    
+    print("\nResults:")
+    print(f"Train Accuracy: {train_acc * 100:.2f}%")
+    print(f"Test Accuracy: {test_acc * 100:.2f}%")
+    print(f"Precision: {precision * 100:.2f}%")
+    print(f"Recall: {recall * 100:.2f}%")
+    print(f"F1-Score: {f1 * 100:.2f}%")
+    print("Confusion Matrix:")
+    print(cm)
+    
+    print(f"Average Inference Time per image: {avg_inf_time * 1000.0:.2f} ms")
+    
+    # Log VRAM usage
+    if torch.cuda.is_available():
+        vram_allocated = torch.cuda.max_memory_allocated() / (1024 ** 2)
+        print(f"Peak GPU VRAM allocated: {vram_allocated:.2f} MB")
+        
+    # Export state dict for deployment
+    os.makedirs(os.path.dirname(MODEL_EXPORT_PATH), exist_ok=True)
+    # Save the model state dict plus weight parameters
+    torch.save(model.state_dict(), MODEL_EXPORT_PATH)
+    print(f"Saved trained CNN model state dict to {MODEL_EXPORT_PATH}")
+
+if __name__ == "__main__":
+    train_cnn()

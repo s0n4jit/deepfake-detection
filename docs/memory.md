@@ -36,7 +36,7 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 
 ## Current Status
 
-**Phase:** Phase 2 complete. Proceeding to Phase 3.
+**Phase:** Phase 3 complete. Proceeding to Phase 4.
 
 **Last updated:** 2026-07-20
 
@@ -50,9 +50,9 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 - [x] Phase 0 — Environment & repo setup
 - [x] Phase 1 — Dataset preparation
 - [x] Phase 2 — Classical pipeline (FAST+BRIEF+RF)
+- [x] Phase 3 — CNN pipeline (transfer learning)
 
 ### Not Started
-- [ ] Phase 3 — CNN pipeline (transfer learning)
 - [ ] Phase 4 — Comparison & explainability
 - [ ] Phase 5 — Web app (backend + frontend)
 - [ ] Phase 6 — Dockerize & deploy
@@ -105,6 +105,22 @@ At the end of each work session:
 - Training Time (Random Forest): 0.30 seconds
 - Total Pipeline Extraction + Training Time: 7.87 seconds
 - Average Inference Time per image: 6.31 ms
+
+### CNN Pipeline (Phase 3)
+- Model: Fine-tuned ResNet18 fc layer (`cnn_model_v1.pt`)
+- Train Accuracy: 76.60%
+- Test Accuracy: 68.60%
+- Test Precision: 67.68%
+- Test Recall: 82.84%
+- Test F1-Score: 74.50%
+- Confusion Matrix:
+  - True Negatives (Real as Real): 55
+  - False Positives (Real as Fake): 53
+  - False Negatives (Fake as Real): 23
+  - True Positives (Fake as Fake): 111
+- Training Time: 174.65 seconds (CPU)
+- Average Inference Time per image: 30.78 ms
+
 
 
 
