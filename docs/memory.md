@@ -142,6 +142,15 @@ At the end of each work session:
   - inner_mouth: 5.69%
 - **CNN explainability:** Generated and saved saliency overlay heatmaps under `docs/explainability/`.
 
+---
+
+## Future Roadmap
+
+Key directions for future development:
+1. **Audio & Video Support:** Expand detection coverage to support video temporal checking (e.g. frame sequence analysis using LSTMs or 3D-CNNs) and audio deepfake detection.
+2. **CNN Accuracy Refinement:** Fine-tune the backbone models further (e.g. unfreezing deeper layers of ResNet18/EfficientNet) with larger datasets on GPU to increase the overall detection accuracy.
+3. **UI/UX Polish:** Enhance the clinical reporting interface, add visualization layers for region importance, and implement responsive improvements for mobile devices.
+
 
 
 
