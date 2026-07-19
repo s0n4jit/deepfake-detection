@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+dataset/
+*.pkl
+*.pt
+*.pth
+*.dat
+*.log
+.DS_Store
