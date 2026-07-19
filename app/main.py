@@ -1,4 +1,7 @@
 import os
+import asyncio
+import urllib.request
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,10 +12,30 @@ from app.pipelines.preprocessing import preprocess_image, NoFaceDetectedError
 from app.pipelines.classical_pipeline import predict_classical
 from app.pipelines.cnn_pipeline import predict_cnn
 
+async def ping_self(app_url: str):
+    url = f"{app_url.rstrip('/')}/healthz"
+    # Delay initial ping slightly to allow server to bind fully
+    await asyncio.sleep(15)
+    while True:
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, lambda: urllib.request.urlopen(url, timeout=10).read())
+        except Exception:
+            pass
+        await asyncio.sleep(240)  # Ping every 4 minutes
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app_url = os.getenv("APP_URL")
+    if app_url:
+        asyncio.create_task(ping_self(app_url))
+    yield
+
 app = FastAPI(
     title="Deepfake Image Detector",
     description="Cybersecurity + ML deliverable. Classical FAST+BRIEF+RF vs ResNet18 comparison.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Enable CORS for local testing
@@ -47,6 +70,7 @@ async def get_index():
     with open(index_path, "r", encoding="utf-8") as f:
         return f.read()
 
+@app.get("/healthz", response_model=HealthResponse)
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check():
     # Since imports fail-fast at startup, if we reached here, models are successfully loaded
