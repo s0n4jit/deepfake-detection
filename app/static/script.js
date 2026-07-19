@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
      const valCnn = document.getElementById("val-cnn");
  
      let selectedFile = null;
-     let selectedModel = "both"; // Default model parameter
+     let selectedModel = "cnn"; // Default model parameter
      let detectedBox = null;     // Bounding box from API response
 
     // Handle Drag & Drop behavior

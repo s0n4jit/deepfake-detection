@@ -40,9 +40,9 @@
             <div class="control-group">
                 <span class="control-label">SELECT DETECTOR PIPELINE</span>
                 <div class="pipeline-selector">
-                    <button type="button" class="toggle-btn active" data-model="both">BOTH PIPELINES</button>
+                    <button type="button" class="toggle-btn active" data-model="cnn">CNN (RESNET18)</button>
                     <button type="button" class="toggle-btn" data-model="classical">CLASSICAL (FAST+BRIEF+RF)</button>
-                    <button type="button" class="toggle-btn" data-model="cnn">CNN (RESNET18)</button>
+                    <button type="button" class="toggle-btn" data-model="both">BOTH PIPELINES</button>
                 </div>
             </div>
 
@@ -68,13 +68,13 @@
                 </div>
                 
                 <div class="model-breakdown">
-                    <div id="row-classical" class="metric-row">
-                        <span class="model-name">Classical (FAST+BRIEF+RF)</span>
-                        <span id="val-classical" class="model-score">-</span>
-                    </div>
                     <div id="row-cnn" class="metric-row">
                         <span class="model-name">CNN (ResNet18)</span>
                         <span id="val-cnn" class="model-score">-</span>
+                    </div>
+                    <div id="row-classical" class="metric-row">
+                        <span class="model-name">Classical (FAST+BRIEF+RF)</span>
+                        <span id="val-classical" class="model-score">-</span>
                     </div>
                 </div>
             </div>

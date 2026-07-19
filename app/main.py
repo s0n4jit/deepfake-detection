@@ -96,7 +96,7 @@ async def get_models_info():
 @app.post("/api/scan", response_model=ScanResponse)
 async def scan_image(
     file: UploadFile = File(...),
-    model: str = Form("both")  # "classical", "cnn", or "both"
+    model: str = Form("cnn")  # "classical", "cnn", or "both"
 ):
     # Validate file extension
     ext = os.path.splitext(file.filename)[1].lower()
