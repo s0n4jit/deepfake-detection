@@ -11,3 +11,5 @@ dataset/
 *.dat
 *.log
 .DS_Store
+.env
+.env.*
