@@ -31,6 +31,7 @@ Record decisions here as they're made, with a one-line reason — so later-you d
 | Target ~90%+ accuracy, but don't force it | Reference paper's own classical model hit ~66%; realistic CNN target is 75–85% on this timeline. 90%+ is a stretch goal, not achieved via test-set leakage or cherry-picking (see `rules.md` §2) |
 | dlib for face/landmark detection | Successfully installed dlib via a precompiled wheel for Python 3.13 on Windows; matches the reference paper's exact requirements |
 | Dataset subset: DeepFake00 to DeepFake04 | Provides a manageable subset (~2000 images before filtering) for 3-day development |
+| Configure default port 8080 & APP_URL self-ping | Meets target environment specifications and prevents Free tier spin-down |
 
 ---
 

@@ -79,7 +79,13 @@ Open **`http://localhost:8000`** in your browser.
 To build and run the container locally:
 ```bash
 docker build -t deepfake-detector .
-docker run -p 8000:8000 deepfake-detector
+docker run -p 8080:8080 deepfake-detector
 ```
 
-Deploy directly on Render as a **Web Service** with the **Docker** runtime. Render will parse the `Dockerfile` automatically, pull the model artifacts inside `app/models/`, and bind to the correct `$PORT`.
+Deploy directly on Render as a **Web Service** with the **Docker** runtime. Render will parse the `Dockerfile` automatically and pull the model artifacts.
+
+### Environment Variables
+Configure these in the Render Dashboard under the **Environment** tab:
+* **`PORT`**: The port on which the server will listen. Defaults to `8080` if not set.
+* **`APP_URL`** (Optional but Recommended): The publicly accessible URL of your deployed application (e.g. `https://your-app.onrender.com`). If provided, the application will ping its own `/healthz` endpoint every 4 minutes to prevent it from sleeping on free hosting tiers.
+
