@@ -13,3 +13,12 @@ dataset/
 .DS_Store
 .env
 .env.*
+!.env.example
+docs/ML_deepfakeDetection_21m.pdf
+docs/PRD.md
+docs/architecture.md
+docs/design.md
+docs/memory.md
+docs/phases.md
+docs/report.md
+docs/rules.md
