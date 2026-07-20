@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,11 +14,30 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support, con
 SPLIT_PATH = "dataset/split.json"
 MODEL_EXPORT_PATH = "app/models/cnn_model_v1.pt"
 BATCH_SIZE = 16
-EPOCHS = 10
+EPOCHS = 20
 LEARNING_RATE = 1e-3
 
+# Parse command line arguments
+parser = argparse.ArgumentParser(description="Train CNN model on GPU/CPU.")
+parser.add_argument("--device", type=str, default="auto", choices=["cuda", "cpu", "auto"],
+                    help="Device to use for training (cuda, cpu, auto)")
+args, unknown = parser.parse_known_args()
+
 # Set device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if args.device == "cuda":
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        print("Warning: CUDA is not available on this system. Please make sure GPU drivers and CUDA-enabled PyTorch are installed.")
+        print("To install PyTorch with CUDA 11.8: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118")
+        print("To install PyTorch with CUDA 12.1: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121")
+        print("Falling back to CPU...")
+        device = torch.device("cpu")
+elif args.device == "cpu":
+    device = torch.device("cpu")
+else:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 print(f"Using device: {device}")
 
 class DeepfakeDataset(Dataset):
