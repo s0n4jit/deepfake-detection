@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 import asyncio
 import urllib.request
 from contextlib import asynccontextmanager
@@ -76,9 +77,11 @@ async def health_check():
     return {"status": "healthy", "models_loaded": True}
 
 @app.get("/api/models", response_model=ModelsInfoResponse)
-async def get_models_info():
-    from app.pipelines.cnn_pipeline import cnn_model
-    backbone_class = cnn_model.__class__.__name__
+async def get_models_info(model_file: Optional[str] = None):
+    from app.pipelines.cnn_pipeline import get_cnn_model
+    model = get_cnn_model(model_file)
+    backbone_class = model.__class__.__name__
+    requested_file = model_file or "cnn_model_v1.pt"
     
     if "EfficientNet" in backbone_class:
         backbone_name = "EfficientNet-B0"
@@ -94,16 +97,25 @@ async def get_models_info():
     return {
         "cnn": {
             "name": f"CNN Pipeline ({backbone_name})",
-            "type": f"Deep Transfer Learning ({version_str})",
+            "type": f"Deep Transfer Learning ({requested_file})",
             "train_accuracy": train_acc,
             "test_accuracy": test_acc,
-            "version": version_str
+            "version": requested_file
         }
     }
 
+@app.get("/api/available-models")
+async def list_available_models():
+    models_dir = "app/models"
+    if not os.path.exists(models_dir):
+        return {"models": []}
+    files = [f for f in os.listdir(models_dir) if f.endswith(".pt")]
+    return {"models": sorted(files)}
+
 @app.post("/api/scan", response_model=ScanResponse)
 async def scan_image(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    model_file: Optional[str] = Form(None)
 ):
     # Validate file extension
     ext = os.path.splitext(file.filename)[1].lower()
@@ -130,7 +142,7 @@ async def scan_image(
         
     # Run prediction
     results = {
-        "cnn": predict_cnn(face_crop)
+        "cnn": predict_cnn(face_crop, model_file)
     }
         
     return {

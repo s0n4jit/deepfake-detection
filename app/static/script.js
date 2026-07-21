@@ -18,15 +18,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const valCnn = document.getElementById("val-cnn");
     const modelVersionChip = document.getElementById("model-version-chip");
     const cnnModelNameLabel = document.getElementById("cnn-model-name-label");
+    const modelSelect = document.getElementById("model-select");
 
     let selectedFile = null;
-    let selectedModel = "cnn"; // Default model parameter
+    let selectedModel = "cnn_model_v1.pt"; // Default model filename
     let detectedBox = null;     // Bounding box from API response
 
     // Fetch and populate model details dynamically
-    async function loadModelInfo() {
+    async function loadModelInfo(modelFile = null) {
         try {
-            const response = await fetch("/api/models");
+            const url = modelFile ? `/api/models?model_file=${modelFile}` : "/api/models";
+            const response = await fetch(url);
             if (response.ok) {
                 const data = await response.json();
                 if (data.cnn) {
@@ -38,7 +40,39 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error("Error loading model info:", error);
         }
     }
-    loadModelInfo();
+
+    async function loadAvailableModels() {
+        try {
+            const response = await fetch("/api/available-models");
+            if (response.ok) {
+                const data = await response.json();
+                modelSelect.innerHTML = "";
+                data.models.forEach(modelFile => {
+                    const opt = document.createElement("option");
+                    opt.value = modelFile;
+                    opt.innerText = modelFile;
+                    if (modelFile === selectedModel) {
+                        opt.selected = true;
+                    }
+                    modelSelect.appendChild(opt);
+                });
+            }
+        } catch (error) {
+            console.error("Error loading available models:", error);
+        }
+    }
+
+    // Trigger loading
+    (async () => {
+        await loadAvailableModels();
+        await loadModelInfo(selectedModel);
+    })();
+
+    // Listen to model select changes
+    modelSelect.addEventListener("change", (e) => {
+        selectedModel = e.target.value;
+        loadModelInfo(selectedModel);
+    });
 
     // Handle Drag & Drop behavior
     dropZone.addEventListener("dragover", (e) => {
@@ -127,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const formData = new FormData();
         formData.append("file", selectedFile);
-        formData.append("model", selectedModel);
+        formData.append("model_file", selectedModel);
 
         try {
             const response = await fetch("/api/scan", {

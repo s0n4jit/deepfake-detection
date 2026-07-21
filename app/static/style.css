@@ -416,3 +416,33 @@ body {
     color: var(--muted-2);
     padding: 12px 0 0 0;
 }
+
+/* Model Selector dropdown styling */
+.model-select-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.model-select-dropdown {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    outline: none;
+    cursor: pointer;
+    transition: background 0.25s, border-color 0.25s;
+}
+
+.model-select-dropdown:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.model-select-dropdown option {
+    background-color: var(--bg);
+    color: var(--ink);
+}
