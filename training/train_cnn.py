@@ -13,15 +13,21 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support, con
 
 # Configuration
 SPLIT_PATH = "dataset/split.json"
-MODEL_EXPORT_PATH = "app/models/cnn_model_v1.pt"
-BATCH_SIZE = 16
-EPOCHS = 20
-LEARNING_RATE = 1e-3
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description="Train CNN model on GPU/CPU.")
 parser.add_argument("--device", type=str, default="auto", choices=["cuda", "cpu", "auto"],
                     help="Device to use for training (cuda, cpu, auto)")
+parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18", "efficientnet_b0"],
+                    help="CNN backbone model to train")
+parser.add_argument("--unfreeze_blocks", type=int, default=0, choices=[0, 1, 2],
+                    help="Number of blocks to unfreeze in backbone")
+parser.add_argument("--dropout", type=float, default=0.0, help="Dropout rate in classification head")
+parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay for regularization")
+parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
+parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
+parser.add_argument("--output", type=str, default=None, help="Output path for state dict file")
 args, unknown = parser.parse_known_args()
 
 # Set device
@@ -63,6 +69,19 @@ class DeepfakeDataset(Dataset):
         return img, label
 
 def train_cnn():
+    BATCH_SIZE = args.batch_size
+    EPOCHS = args.epochs
+    LEARNING_RATE = args.lr
+    
+    # Configure output model file dynamically
+    if args.output:
+        model_export_path = args.output
+    else:
+        if args.backbone == "resnet18":
+            model_export_path = "app/models/cnn_model_v1.pt"
+        else:
+            model_export_path = "app/models/cnn_model_v2.pt"
+
     with open(SPLIT_PATH, "r") as f:
         split = json.load(f)
         
@@ -96,21 +115,74 @@ def train_cnn():
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
     
-    # Load pretrained ResNet18 backbone
-    print("Loading pretrained ResNet18...")
-    model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-    
-    # Freeze all backbone layers
-    for param in model.parameters():
-        param.requires_grad = False
+    # Load pretrained backbone
+    print(f"Loading pretrained {args.backbone}...")
+    if args.backbone == "resnet18":
+        model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        num_features = model.fc.in_features
         
-    # Replace the classification head
-    num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, 2)
+        # Replace classification head
+        if args.unfreeze_blocks > 0:
+            print("Unfreezing layer4 of ResNet18...")
+            # Freeze all layers first
+            for param in model.parameters():
+                param.requires_grad = False
+            # Unfreeze layer4
+            for param in model.layer4.parameters():
+                param.requires_grad = True
+        else:
+            # Freeze all representation layers
+            for param in model.parameters():
+                param.requires_grad = False
+                
+        # Custom head with dropout
+        if args.dropout > 0.0:
+            print(f"Applying dropout of {args.dropout} to classification head...")
+            model.fc = nn.Sequential(
+                nn.Dropout(p=args.dropout, inplace=True),
+                nn.Linear(num_features, 2)
+            )
+        else:
+            model.fc = nn.Linear(num_features, 2)
+            
+    elif args.backbone == "efficientnet_b0":
+        model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
+        num_features = model.classifier[1].in_features
+        
+        # Replace classification head
+        if args.unfreeze_blocks > 0:
+            print("Unfreezing features[8] of EfficientNet-B0...")
+            # Freeze all layers
+            for param in model.parameters():
+                param.requires_grad = False
+            # Unfreeze block 8 (features[8])
+            for param in model.features[8].parameters():
+                param.requires_grad = True
+        else:
+            for param in model.parameters():
+                param.requires_grad = False
+                
+        # Custom head with dropout
+        if args.dropout > 0.0:
+            print(f"Applying dropout of {args.dropout} to classification head...")
+            model.classifier = nn.Sequential(
+                nn.Dropout(p=args.dropout, inplace=True),
+                nn.Linear(num_features, 2)
+            )
+        else:
+            model.classifier = nn.Sequential(
+                nn.Dropout(p=0.0, inplace=True),
+                nn.Linear(num_features, 2)
+            )
+            
     model = model.to(device)
     
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.fc.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=LEARNING_RATE,
+        weight_decay=args.weight_decay
+    )
     
     print("Starting training...")
     start_time = time.time()
@@ -238,7 +310,7 @@ def train_cnn():
     ax2.legend(loc='upper right')
     
     plt.tight_layout()
-    curve_path = "docs/resnet18_training_curves.png"
+    curve_path = f"docs/{args.backbone}_training_curves.png"
     plt.savefig(curve_path, dpi=300)
     plt.close()
     print(f"Saved run training curves to {curve_path}")
@@ -246,7 +318,7 @@ def train_cnn():
     # 2. Confusion Matrix
     fig, ax = plt.subplots(figsize=(6, 5))
     im = ax.imshow(cm, cmap='Blues', interpolation='nearest', vmin=0, vmax=len(test_dataset))
-    ax.set_title("RESNET18 Confusion Matrix", fontsize=12, fontweight='bold', pad=12)
+    ax.set_title(f"{args.backbone.upper()} Confusion Matrix", fontsize=12, fontweight='bold', pad=12)
     tick_marks = [0, 1]
     ax.set_xticks(tick_marks)
     ax.set_yticks(tick_marks)
@@ -261,7 +333,7 @@ def train_cnn():
             ax.text(j, i, str(cm[i, j]), ha="center", va="center", color=text_color, fontsize=14, fontweight='bold')
             
     plt.tight_layout()
-    cm_path = "docs/resnet18_confusion_matrix.png"
+    cm_path = f"docs/{args.backbone}_confusion_matrix.png"
     plt.savefig(cm_path, dpi=300)
     plt.close()
     print(f"Saved run confusion matrix to {cm_path}")
@@ -269,12 +341,23 @@ def train_cnn():
     # 3. Model Comparison Bar Chart (Dynamically update Current Run metrics)
     runs = [
         "CNN Run 1\n(ResNet18)", "CNN Run 2\n(ResNet18)", "CNN Run 3\n(ResNet18)", 
-        "CNN Run 4\n(ResNet18)", "CNN Run 5\n(Current Run)", "CNN Run 6\n(EffNet)"
+        "CNN Run 4\n(ResNet18)", "CNN Run 5\n(ResNet18 best)", "CNN Run 6\n(EffNet best)"
     ]
     
-    accuracy = [68.60, 71.90, 69.42, 71.10, test_acc * 100.0, 76.45]
-    f1_score = [74.50, 74.60, 74.83, 71.26, f1 * 100.0, 78.81]
+    # Default historical values
+    accuracy = [68.60, 71.90, 69.42, 71.10, 83.47, 76.45]
+    f1_score = [74.50, 74.60, 74.83, 71.26, 85.71, 78.81]
     
+    # Update currently trained backbone values
+    if args.backbone == "resnet18":
+        runs[4] = "CNN Run 5\n(Current ResNet18)"
+        accuracy[4] = test_acc * 100.0
+        f1_score[4] = f1 * 100.0
+    else:
+        runs[5] = "CNN Run 6\n(Current EffNet)"
+        accuracy[5] = test_acc * 100.0
+        f1_score[5] = f1 * 100.0
+        
     x = np.arange(len(runs))
     width = 0.35
     
@@ -307,9 +390,9 @@ def train_cnn():
     print(f"Saved run model comparison bar chart to {comparison_path}")
     
     # Export state dict for deployment
-    os.makedirs(os.path.dirname(MODEL_EXPORT_PATH), exist_ok=True)
-    torch.save(model.state_dict(), MODEL_EXPORT_PATH)
-    print(f"Saved trained CNN model state dict to {MODEL_EXPORT_PATH}")
+    os.makedirs(os.path.dirname(model_export_path), exist_ok=True)
+    torch.save(model.state_dict(), model_export_path)
+    print(f"Saved trained CNN model state dict to {model_export_path}")
 
 if __name__ == "__main__":
     train_cnn()
