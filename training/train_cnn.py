@@ -230,7 +230,7 @@ def train_cnn():
             total += labels.size(0)
             correct += predicted.eq(labels).sum().item()
             
-            if (batch_idx + 1) % 500 == 0:
+            if (batch_idx + 1) % 50 == 0:
                 running_acc = correct / total
                 print(f"  Batch {batch_idx+1}/{len(train_loader)} - Running Loss: {loss.item():.4f} - Running Acc: {running_acc*100:.2f}%")
             
