@@ -25,9 +25,32 @@ rf_clf = classical_data["classifier"]
 
 # Load CNN
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-cnn_model = models.resnet18()
-cnn_model.fc = torch.nn.Linear(cnn_model.fc.in_features, 2)
-cnn_model.load_state_dict(torch.load(CNN_MODEL_PATH, map_location=device))
+state_dict = torch.load(CNN_MODEL_PATH, map_location=device)
+
+# Detect model type from state_dict keys
+is_efficientnet = any(k.startswith("features.") for k in state_dict.keys())
+
+if is_efficientnet:
+    print("Detected EfficientNet-B0 state_dict. Instantiating EfficientNet-B0...")
+    cnn_model = models.efficientnet_b0()
+    num_features = cnn_model.classifier[1].in_features
+    cnn_model.classifier = torch.nn.Sequential(
+        torch.nn.Dropout(p=0.0),
+        torch.nn.Linear(num_features, 2)
+    )
+else:
+    print("Detected ResNet18 state_dict. Instantiating ResNet18...")
+    cnn_model = models.resnet18()
+    num_features = cnn_model.fc.in_features
+    if "fc.1.weight" in state_dict:
+        cnn_model.fc = torch.nn.Sequential(
+            torch.nn.Dropout(p=0.0),
+            torch.nn.Linear(num_features, 2)
+        )
+    else:
+        cnn_model.fc = torch.nn.Linear(num_features, 2)
+        
+cnn_model.load_state_dict(state_dict)
 cnn_model.to(device)
 cnn_model.eval()
 

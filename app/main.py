@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import STATIC_DIR, MAX_UPLOAD_SIZE, ALLOWED_EXTENSIONS
 from app.schemas import ScanResponse, HealthResponse, ModelsInfoResponse
 from app.pipelines.preprocessing import preprocess_image, NoFaceDetectedError
-from app.pipelines.classical_pipeline import predict_classical
 from app.pipelines.cnn_pipeline import predict_cnn
 
 async def ping_self(app_url: str):
@@ -78,25 +77,33 @@ async def health_check():
 
 @app.get("/api/models", response_model=ModelsInfoResponse)
 async def get_models_info():
+    from app.pipelines.cnn_pipeline import cnn_model
+    backbone_class = cnn_model.__class__.__name__
+    
+    if "EfficientNet" in backbone_class:
+        backbone_name = "EfficientNet-B0"
+        version_str = "cnn_v2"
+        train_acc = 0.9840
+        test_acc = 0.7645
+    else:
+        backbone_name = "ResNet18"
+        version_str = "cnn_v1"
+        train_acc = 0.9929
+        test_acc = 0.8347
+        
     return {
-        "classical": {
-            "name": "Classical Pipeline (FAST+BRIEF+RF)",
-            "type": "Keypoint engineered features + Random Forest",
-            "train_accuracy": 0.9787,
-            "test_accuracy": 0.6694
-        },
         "cnn": {
-            "name": "CNN Pipeline (ResNet18)",
-            "type": "Deep Transfer Learning on cropped faces",
-            "train_accuracy": 0.7660,
-            "test_accuracy": 0.6860
+            "name": f"CNN Pipeline ({backbone_name})",
+            "type": f"Deep Transfer Learning ({version_str})",
+            "train_accuracy": train_acc,
+            "test_accuracy": test_acc,
+            "version": version_str
         }
     }
 
 @app.post("/api/scan", response_model=ScanResponse)
 async def scan_image(
-    file: UploadFile = File(...),
-    model: str = Form("cnn")  # "classical", "cnn", or "both"
+    file: UploadFile = File(...)
 ):
     # Validate file extension
     ext = os.path.splitext(file.filename)[1].lower()
@@ -121,15 +128,10 @@ async def scan_image(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
         
-    # Run predictions
-    results = {}
-    model_choice = model.lower()
-    
-    if model_choice in ("classical", "both"):
-        results["classical"] = predict_classical(face_crop, shape)
-        
-    if model_choice in ("cnn", "both"):
-        results["cnn"] = predict_cnn(face_crop)
+    # Run prediction
+    results = {
+        "cnn": predict_cnn(face_crop)
+    }
         
     return {
         "face_detected": True,

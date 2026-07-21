@@ -6,24 +6,39 @@ document.addEventListener("DOMContentLoaded", () => {
     const imagePreview = document.getElementById("image-preview");
     const scanCanvas = document.getElementById("scan-canvas");
     const scanBtn = document.getElementById("scan-btn");
-    const toggleBtns = document.querySelectorAll(".toggle-btn");
     const scanProgress = document.getElementById("scan-progress");
     const resultsPanel = document.getElementById("results-panel");
-     const errorBanner = document.getElementById("error-banner");
-     const errorText = document.getElementById("error-text");
-     const resetBtn = document.getElementById("reset-btn");
+    const errorBanner = document.getElementById("error-banner");
+    const errorText = document.getElementById("error-text");
+    const resetBtn = document.getElementById("reset-btn");
      
-     // Result elements
-     const verdictText = document.getElementById("verdict-text");
-     const verdictConfidence = document.getElementById("verdict-confidence");
-     const rowClassical = document.getElementById("row-classical");
-     const valClassical = document.getElementById("val-classical");
-     const rowCnn = document.getElementById("row-cnn");
-     const valCnn = document.getElementById("val-cnn");
- 
-     let selectedFile = null;
-     let selectedModel = "cnn"; // Default model parameter
-     let detectedBox = null;     // Bounding box from API response
+    // Result elements
+    const verdictText = document.getElementById("verdict-text");
+    const verdictConfidence = document.getElementById("verdict-confidence");
+    const valCnn = document.getElementById("val-cnn");
+    const modelVersionChip = document.getElementById("model-version-chip");
+    const cnnModelNameLabel = document.getElementById("cnn-model-name-label");
+
+    let selectedFile = null;
+    let selectedModel = "cnn"; // Default model parameter
+    let detectedBox = null;     // Bounding box from API response
+
+    // Fetch and populate model details dynamically
+    async function loadModelInfo() {
+        try {
+            const response = await fetch("/api/models");
+            if (response.ok) {
+                const data = await response.json();
+                if (data.cnn) {
+                    modelVersionChip.innerText = data.cnn.version || "cnn_v1";
+                    cnnModelNameLabel.innerText = data.cnn.name;
+                }
+            }
+        } catch (error) {
+            console.error("Error loading model info:", error);
+        }
+    }
+    loadModelInfo();
 
     // Handle Drag & Drop behavior
     dropZone.addEventListener("dragover", (e) => {
@@ -71,15 +86,6 @@ document.addEventListener("DOMContentLoaded", () => {
         clearCanvas();
         resultsPanel.style.display = "none";
         errorBanner.style.display = "none";
-    });
-
-    // Toggle button selectors
-    toggleBtns.forEach(btn => {
-        btn.addEventListener("click", () => {
-            toggleBtns.forEach(b => b.classList.remove("active"));
-            btn.classList.add("active");
-            selectedModel = btn.getAttribute("data-model");
-        });
     });
 
     // Preview File logic
@@ -159,42 +165,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Parse verdict states
-        // If both models are run, compute an averaged summary, otherwise use the single active verdict
         const results = data.results;
         let finalVerdict = "real";
         let finalConf = 0.0;
         
-        // Default rows visibility
-        rowClassical.style.display = "none";
-        rowCnn.style.display = "none";
-        
-        if (results.classical && results.cnn) {
-            rowClassical.style.display = "flex";
-            rowCnn.style.display = "flex";
-            
-            valClassical.innerText = `${results.classical.verdict.toUpperCase()} (${(results.classical.confidence * 100).toFixed(1)}%)`;
-            valCnn.innerText = `${results.cnn.verdict.toUpperCase()} (${(results.cnn.confidence * 100).toFixed(1)}%)`;
-            
-            // If they disagree, show the higher confidence verdict
-            if (results.classical.verdict === results.cnn.verdict) {
-                finalVerdict = results.classical.verdict;
-                finalConf = (results.classical.confidence + results.cnn.confidence) / 2.0;
-            } else {
-                if (results.classical.confidence > results.cnn.confidence) {
-                    finalVerdict = results.classical.verdict;
-                    finalConf = results.classical.confidence;
-                } else {
-                    finalVerdict = results.cnn.verdict;
-                    finalConf = results.cnn.confidence;
-                }
-            }
-        } else if (results.classical) {
-            rowClassical.style.display = "flex";
-            valClassical.innerText = `${results.classical.verdict.toUpperCase()} (${(results.classical.confidence * 100).toFixed(1)}%)`;
-            finalVerdict = results.classical.verdict;
-            finalConf = results.classical.confidence;
-        } else if (results.cnn) {
-            rowCnn.style.display = "flex";
+        if (results.cnn) {
             valCnn.innerText = `${results.cnn.verdict.toUpperCase()} (${(results.cnn.confidence * 100).toFixed(1)}%)`;
             finalVerdict = results.cnn.verdict;
             finalConf = results.cnn.confidence;

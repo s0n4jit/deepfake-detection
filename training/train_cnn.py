@@ -21,7 +21,22 @@ LEARNING_RATE = 1e-3
 parser = argparse.ArgumentParser(description="Train CNN model on GPU/CPU.")
 parser.add_argument("--device", type=str, default="auto", choices=["cuda", "cpu", "auto"],
                     help="Device to use for training (cuda, cpu, auto)")
+parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18", "efficientnet_b0"],
+                    help="CNN backbone to use (resnet18, efficientnet_b0)")
+parser.add_argument("--unfreeze_blocks", type=int, default=0, choices=[0, 1, 2],
+                    help="Number of last blocks to unfreeze (0=none, 1=last block, 2=last 2 blocks)")
+parser.add_argument("--dropout", type=float, default=0.0, help="Dropout probability (0.0 to 0.9)")
+parser.add_argument("--weight_decay", type=float, default=0.0, help="L2 regularization weight decay")
+parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
+parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
+parser.add_argument("--output", type=str, default="app/models/cnn_model_v1.pt", help="Path to save trained model")
 args, unknown = parser.parse_known_args()
+
+BATCH_SIZE = args.batch_size
+EPOCHS = args.epochs
+LEARNING_RATE = args.lr
+MODEL_EXPORT_PATH = args.output
 
 # Set device
 if args.device == "cuda":
@@ -95,21 +110,76 @@ def train_cnn():
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
     
-    # Load pretrained ResNet18 backbone
-    print("Loading pretrained ResNet18...")
-    model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-    
-    # Freeze all backbone layers
-    for param in model.parameters():
-        param.requires_grad = False
+    # Load pretrained backbone
+    print(f"Loading pretrained {args.backbone}...")
+    if args.backbone == "resnet18":
+        model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
         
-    # Replace the classification head
-    num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, 2)
+        # Freeze all backbone layers
+        for param in model.parameters():
+            param.requires_grad = False
+            
+        # Unfreeze blocks
+        if args.unfreeze_blocks >= 1:
+            print("Unfreezing layer4 of ResNet18...")
+            for param in model.layer4.parameters():
+                param.requires_grad = True
+        if args.unfreeze_blocks >= 2:
+            print("Unfreezing layer3 of ResNet18...")
+            for param in model.layer3.parameters():
+                param.requires_grad = True
+                
+        # Replace the classification head
+        num_features = model.fc.in_features
+        if args.dropout > 0:
+            print(f"Applying dropout of {args.dropout} to classification head...")
+            model.fc = nn.Sequential(
+                nn.Dropout(p=args.dropout),
+                nn.Linear(num_features, 2)
+            )
+        else:
+            model.fc = nn.Linear(num_features, 2)
+            
+    elif args.backbone == "efficientnet_b0":
+        model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
+        
+        # Freeze all backbone layers
+        for param in model.parameters():
+            param.requires_grad = False
+            
+        # Unfreeze blocks
+        # EfficientNet-B0 has 9 blocks inside model.features (0 to 8)
+        if args.unfreeze_blocks >= 1:
+            print("Unfreezing features[8] of EfficientNet-B0...")
+            for param in model.features[8].parameters():
+                param.requires_grad = True
+        if args.unfreeze_blocks >= 2:
+            print("Unfreezing features[7] of EfficientNet-B0...")
+            for param in model.features[7].parameters():
+                param.requires_grad = True
+                
+        # Replace classification head
+        num_features = model.classifier[1].in_features
+        if args.dropout > 0:
+            print(f"Applying dropout of {args.dropout} to classification head...")
+            model.classifier = nn.Sequential(
+                nn.Dropout(p=args.dropout, inplace=True),
+                nn.Linear(num_features, 2)
+            )
+        else:
+            model.classifier = nn.Sequential(
+                nn.Dropout(p=0.0, inplace=True),
+                nn.Linear(num_features, 2)
+            )
+            
     model = model.to(device)
     
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.fc.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=LEARNING_RATE,
+        weight_decay=args.weight_decay
+    )
     
     print("Starting training...")
     start_time = time.time()

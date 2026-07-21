@@ -19,7 +19,7 @@ class ModelInfo(BaseModel):
     type: str
     train_accuracy: float
     test_accuracy: float
+    version: Optional[str] = None
 
 class ModelsInfoResponse(BaseModel):
-    classical: ModelInfo
     cnn: ModelInfo
