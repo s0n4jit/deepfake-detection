@@ -55,34 +55,42 @@ else:
 
 print(f"Using device: {device}")
 
+NEW_DATASET_DIR = "dataset/archive/Dataset"
+
 class DeepfakeDataset(Dataset):
-    def __init__(self, records, transform=None):
-        self.records = records
+    def __init__(self, root_dir, transform=None):
         self.transform = transform
+        self.samples = []
+        
+        # We explicitly map Real -> 0, Fake -> 1
+        real_dir = os.path.join(root_dir, "Real")
+        fake_dir = os.path.join(root_dir, "Fake")
+        
+        if os.path.exists(real_dir):
+            print(f"Scanning Real images in {real_dir}...")
+            for f in os.listdir(real_dir):
+                if f.endswith(('.jpg', '.jpeg', '.png')):
+                    self.samples.append((os.path.join(real_dir, f), 0))
+                    
+        if os.path.exists(fake_dir):
+            print(f"Scanning Fake images in {fake_dir}...")
+            for f in os.listdir(fake_dir):
+                if f.endswith(('.jpg', '.jpeg', '.png')):
+                    self.samples.append((os.path.join(fake_dir, f), 1))
+                    
+        print(f"Total loaded: {len(self.samples)} images from {root_dir}")
         
     def __len__(self):
-        return len(self.records)
+        return len(self.samples)
         
     def __getitem__(self, idx):
-        rec = self.records[idx]
-        img_path = rec["path"]
-        label = 0 if rec["label"] == "REAL" else 1
-        
-        # Load image via PIL to match torchvision transforms expectations
+        img_path, label = self.samples[idx]
         img = Image.open(img_path).convert("RGB")
-        
         if self.transform:
             img = self.transform(img)
-            
         return img, label
 
 def train_cnn():
-    with open(SPLIT_PATH, "r") as f:
-        split = json.load(f)
-        
-    train_recs = split["train"]
-    test_recs = split["test"]
-    
     # ImageNet normalization stats
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
@@ -104,8 +112,9 @@ def train_cnn():
         normalize
     ])
     
-    train_dataset = DeepfakeDataset(train_recs, train_transform)
-    test_dataset = DeepfakeDataset(test_recs, test_transform)
+    print("Loading datasets...")
+    train_dataset = DeepfakeDataset(os.path.join(NEW_DATASET_DIR, "Train"), train_transform)
+    test_dataset = DeepfakeDataset(os.path.join(NEW_DATASET_DIR, "Test"), test_transform)
     
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
@@ -229,18 +238,8 @@ def train_cnn():
     inf_duration = time.time() - inf_start
     avg_inf_time = inf_duration / len(test_dataset)
     
-    # Evaluate train set accuracy too (for overfitting gap check)
-    train_preds = []
-    train_labels = []
-    with torch.no_grad():
-        for images, labels in train_loader:
-            images = images.to(device)
-            outputs = model(images)
-            _, predicted = outputs.max(1)
-            train_preds.extend(predicted.cpu().numpy())
-            train_labels.extend(labels.numpy())
-            
-    train_acc = accuracy_score(train_labels, train_preds)
+    # Use final epoch's running training accuracy to avoid extremely slow full pass over 140k images
+    train_acc = epoch_acc
     test_acc = accuracy_score(all_labels, all_preds)
     
     precision, recall, f1, _ = precision_recall_fscore_support(all_labels, all_preds, average='binary')
