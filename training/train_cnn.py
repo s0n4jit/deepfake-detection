@@ -199,7 +199,7 @@ def train_cnn():
         correct = 0
         total = 0
         
-        for images, labels in train_loader:
+        for batch_idx, (images, labels) in enumerate(train_loader):
             images = images.to(device)
             labels = labels.to(device)
             
@@ -213,6 +213,10 @@ def train_cnn():
             _, predicted = outputs.max(1)
             total += labels.size(0)
             correct += predicted.eq(labels).sum().item()
+            
+            if (batch_idx + 1) % 500 == 0:
+                running_acc = correct / total
+                print(f"  Batch {batch_idx+1}/{len(train_loader)} - Running Loss: {loss.item():.4f} - Running Acc: {running_acc*100:.2f}%")
             
         epoch_loss = running_loss / total
         epoch_acc = correct / total
