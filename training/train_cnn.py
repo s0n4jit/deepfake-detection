@@ -1,4 +1,5 @@
 import os
+import matplotlib.pyplot as plt
 import json
 import time
 import argparse
@@ -114,6 +115,10 @@ def train_cnn():
     print("Starting training...")
     start_time = time.time()
     
+    history_loss = []
+    history_train_acc = []
+    history_test_acc = []
+    
     for epoch in range(EPOCHS):
         model.train()
         running_loss = 0.0
@@ -137,12 +142,31 @@ def train_cnn():
             
         epoch_loss = running_loss / total
         epoch_acc = correct / total
-        print(f"Epoch {epoch+1}/{EPOCHS} - Loss: {epoch_loss:.4f} - Acc: {epoch_acc * 100:.2f}%")
+        
+        # Evaluate test set accuracy at end of epoch
+        model.eval()
+        test_correct = 0
+        test_total = 0
+        with torch.no_grad():
+            for images, labels in test_loader:
+                images = images.to(device)
+                labels = labels.to(device)
+                outputs = model(images)
+                _, predicted = outputs.max(1)
+                test_total += labels.size(0)
+                test_correct += predicted.eq(labels).sum().item()
+        test_epoch_acc = test_correct / test_total
+        
+        history_loss.append(epoch_loss)
+        history_train_acc.append(epoch_acc * 100.0)
+        history_test_acc.append(test_epoch_acc * 100.0)
+        
+        print(f"Epoch {epoch+1}/{EPOCHS} - Loss: {epoch_loss:.4f} - Train Acc: {epoch_acc * 100:.2f}% - Test Acc: {test_epoch_acc * 100:.2f}%")
         
     training_duration = time.time() - start_time
     print(f"Training completed in {training_duration:.2f} seconds")
     
-    # Evaluate model on test set
+    # Evaluate model on test set for final metrics
     model.eval()
     all_preds = []
     all_labels = []
@@ -192,9 +216,58 @@ def train_cnn():
         vram_allocated = torch.cuda.max_memory_allocated() / (1024 ** 2)
         print(f"Peak GPU VRAM allocated: {vram_allocated:.2f} MB")
         
+    # Generate run plots dynamically
+    os.makedirs("docs", exist_ok=True)
+    epochs_range = range(1, EPOCHS + 1)
+    
+    # 1. Training Curves
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    ax1.plot(epochs_range, history_train_acc, label='Train Accuracy', color='#6366f1', marker='o')
+    ax1.plot(epochs_range, history_test_acc, label='Test Accuracy', color='#10b981', marker='s')
+    ax1.set_title('Training and Test Accuracy', fontsize=12, fontweight='bold')
+    ax1.set_xlabel('Epochs')
+    ax1.set_ylabel('Accuracy (%)')
+    ax1.grid(True, linestyle='--', alpha=0.5)
+    ax1.legend(loc='lower right')
+    
+    ax2.plot(epochs_range, history_loss, label='Train Loss', color='#ef4444', marker='o')
+    ax2.set_title('Training Loss', fontsize=12, fontweight='bold')
+    ax2.set_xlabel('Epochs')
+    ax2.set_ylabel('Loss Value')
+    ax2.grid(True, linestyle='--', alpha=0.5)
+    ax2.legend(loc='upper right')
+    
+    plt.tight_layout()
+    curve_path = f"docs/{args.backbone}_training_curves.png"
+    plt.savefig(curve_path, dpi=300)
+    plt.close()
+    print(f"Saved run training curves to {curve_path}")
+    
+    # 2. Confusion Matrix
+    fig, ax = plt.subplots(figsize=(6, 5))
+    im = ax.imshow(cm, cmap='Blues', interpolation='nearest', vmin=0, vmax=len(test_dataset))
+    ax.set_title(f"{args.backbone.upper()} Confusion Matrix", fontsize=12, fontweight='bold', pad=12)
+    tick_marks = [0, 1]
+    ax.set_xticks(tick_marks)
+    ax.set_yticks(tick_marks)
+    ax.set_xticklabels(['REAL', 'FAKE'])
+    ax.set_yticklabels(['REAL', 'FAKE'])
+    ax.set_ylabel('True Label')
+    ax.set_xlabel('Predicted Label')
+    
+    for i in range(2):
+        for j in range(2):
+            text_color = "white" if cm[i, j] > (len(test_dataset) / 4) else "black"
+            ax.text(j, i, str(cm[i, j]), ha="center", va="center", color=text_color, fontsize=14, fontweight='bold')
+            
+    plt.tight_layout()
+    cm_path = f"docs/{args.backbone}_confusion_matrix.png"
+    plt.savefig(cm_path, dpi=300)
+    plt.close()
+    print(f"Saved run confusion matrix to {cm_path}")
+    
     # Export state dict for deployment
     os.makedirs(os.path.dirname(MODEL_EXPORT_PATH), exist_ok=True)
-    # Save the model state dict plus weight parameters
     torch.save(model.state_dict(), MODEL_EXPORT_PATH)
     print(f"Saved trained CNN model state dict to {MODEL_EXPORT_PATH}")
 
