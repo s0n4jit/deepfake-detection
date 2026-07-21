@@ -238,7 +238,7 @@ def train_cnn():
     ax2.legend(loc='upper right')
     
     plt.tight_layout()
-    curve_path = f"docs/{args.backbone}_training_curves.png"
+    curve_path = "docs/resnet18_training_curves.png"
     plt.savefig(curve_path, dpi=300)
     plt.close()
     print(f"Saved run training curves to {curve_path}")
@@ -246,7 +246,7 @@ def train_cnn():
     # 2. Confusion Matrix
     fig, ax = plt.subplots(figsize=(6, 5))
     im = ax.imshow(cm, cmap='Blues', interpolation='nearest', vmin=0, vmax=len(test_dataset))
-    ax.set_title(f"{args.backbone.upper()} Confusion Matrix", fontsize=12, fontweight='bold', pad=12)
+    ax.set_title("RESNET18 Confusion Matrix", fontsize=12, fontweight='bold', pad=12)
     tick_marks = [0, 1]
     ax.set_xticks(tick_marks)
     ax.set_yticks(tick_marks)
@@ -261,7 +261,7 @@ def train_cnn():
             ax.text(j, i, str(cm[i, j]), ha="center", va="center", color=text_color, fontsize=14, fontweight='bold')
             
     plt.tight_layout()
-    cm_path = f"docs/{args.backbone}_confusion_matrix.png"
+    cm_path = "docs/resnet18_confusion_matrix.png"
     plt.savefig(cm_path, dpi=300)
     plt.close()
     print(f"Saved run confusion matrix to {cm_path}")
