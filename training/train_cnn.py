@@ -266,6 +266,46 @@ def train_cnn():
     plt.close()
     print(f"Saved run confusion matrix to {cm_path}")
     
+    # 3. Model Comparison Bar Chart (Dynamically update Current Run metrics)
+    runs = [
+        "CNN Run 1\n(ResNet18)", "CNN Run 2\n(ResNet18)", "CNN Run 3\n(ResNet18)", 
+        "CNN Run 4\n(ResNet18)", "CNN Run 5\n(Current Run)", "CNN Run 6\n(EffNet)"
+    ]
+    
+    accuracy = [68.60, 71.90, 69.42, 71.10, test_acc * 100.0, 76.45]
+    f1_score = [74.50, 74.60, 74.83, 71.26, f1 * 100.0, 78.81]
+    
+    x = np.arange(len(runs))
+    width = 0.35
+    
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    rects1 = ax.bar(x - width/2, accuracy, width, label='Test Accuracy', color='#6366f1')
+    rects2 = ax.bar(x + width/2, f1_score, width, label='Test F1-Score', color='#10b981')
+    
+    ax.set_title('CNN Experimental Run Comparisons', fontsize=12, fontweight='bold', pad=15)
+    ax.set_ylabel('Metrics Score (%)')
+    ax.set_xticks(x)
+    ax.set_xticklabels(runs, rotation=0, fontsize=9)
+    ax.grid(True, axis='y', linestyle='--', alpha=0.5)
+    ax.set_ylim(0, 105)
+    ax.legend(loc='lower right')
+    
+    for rect in rects1:
+        height = rect.get_height()
+        ax.annotate(f'{height:.1f}%', xy=(rect.get_x() + rect.get_width() / 2, height),
+                    xytext=(0, 3), textcoords="offset points", ha='center', va='bottom', fontsize=8)
+                    
+    for rect in rects2:
+        height = rect.get_height()
+        ax.annotate(f'{height:.1f}%', xy=(rect.get_x() + rect.get_width() / 2, height),
+                    xytext=(0, 3), textcoords="offset points", ha='center', va='bottom', fontsize=8)
+                    
+    plt.tight_layout()
+    comparison_path = "docs/model_comparison_bar_chart.png"
+    plt.savefig(comparison_path, dpi=300)
+    plt.close()
+    print(f"Saved run model comparison bar chart to {comparison_path}")
+    
     # Export state dict for deployment
     os.makedirs(os.path.dirname(MODEL_EXPORT_PATH), exist_ok=True)
     torch.save(model.state_dict(), MODEL_EXPORT_PATH)
