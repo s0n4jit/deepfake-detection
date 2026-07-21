@@ -2,6 +2,7 @@ import os
 import json
 import time
 import argparse
+import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -30,6 +31,7 @@ parser.add_argument("--weight_decay", type=float, default=0.0, help="L2 regulari
 parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
 parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
 parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
+parser.add_argument("--max_samples", type=int, default=0, help="Maximum number of balanced samples to train on (0 = all)")
 parser.add_argument("--output", type=str, default="app/models/cnn_model_v1.pt", help="Path to save trained model")
 args, unknown = parser.parse_known_args()
 
@@ -58,7 +60,7 @@ print(f"Using device: {device}")
 NEW_DATASET_DIR = "dataset/archive/Dataset"
 
 class DeepfakeDataset(Dataset):
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, transform=None, max_samples=0):
         self.transform = transform
         self.samples = []
         
@@ -66,18 +68,32 @@ class DeepfakeDataset(Dataset):
         real_dir = os.path.join(root_dir, "Real")
         fake_dir = os.path.join(root_dir, "Fake")
         
+        real_list = []
+        fake_list = []
+        
         if os.path.exists(real_dir):
             print(f"Scanning Real images in {real_dir}...")
             for f in os.listdir(real_dir):
                 if f.endswith(('.jpg', '.jpeg', '.png')):
-                    self.samples.append((os.path.join(real_dir, f), 0))
+                    real_list.append((os.path.join(real_dir, f), 0))
                     
         if os.path.exists(fake_dir):
             print(f"Scanning Fake images in {fake_dir}...")
             for f in os.listdir(fake_dir):
                 if f.endswith(('.jpg', '.jpeg', '.png')):
-                    self.samples.append((os.path.join(fake_dir, f), 1))
+                    fake_list.append((os.path.join(fake_dir, f), 1))
                     
+        # Apply max_samples balancing if specified
+        if max_samples > 0:
+            half = max_samples // 2
+            random.seed(42) # For reproducible subsampling
+            random.shuffle(real_list)
+            random.shuffle(fake_list)
+            real_list = real_list[:half]
+            fake_list = fake_list[:half]
+            
+        self.samples = real_list + fake_list
+        random.shuffle(self.samples)
         print(f"Total loaded: {len(self.samples)} images from {root_dir}")
         
     def __len__(self):
@@ -113,8 +129,8 @@ def train_cnn():
     ])
     
     print("Loading datasets...")
-    train_dataset = DeepfakeDataset(os.path.join(NEW_DATASET_DIR, "Train"), train_transform)
-    test_dataset = DeepfakeDataset(os.path.join(NEW_DATASET_DIR, "Test"), test_transform)
+    train_dataset = DeepfakeDataset(os.path.join(NEW_DATASET_DIR, "Train"), train_transform, max_samples=args.max_samples)
+    test_dataset = DeepfakeDataset(os.path.join(NEW_DATASET_DIR, "Test"), test_transform, max_samples=args.max_samples // 3 if args.max_samples > 0 else 0)
     
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
