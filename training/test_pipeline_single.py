@@ -1,9 +1,7 @@
 import os
 import cv2
 import torch
-import pickle
 from app.pipelines.preprocessing import preprocess_image
-from app.pipelines.classical_pipeline import predict_classical
 from app.pipelines.cnn_pipeline import predict_cnn
 
 # Test image path (replace with any image you want to test)
@@ -25,13 +23,6 @@ def test_single_image():
     except Exception as e:
         print(f"Face detection failed: {e}")
         return
-        
-    print("\n--- Running Classical Pipeline (FAST+BRIEF+RF) ---")
-    try:
-        class_res = predict_classical(face_crop, shape)
-        print(f"Classical Verdict: {class_res['verdict'].upper()} (Confidence: {class_res['confidence'] * 100:.2f}%)")
-    except Exception as e:
-        print(f"Classical inference failed: {e}")
         
     print("\n--- Running CNN Pipeline (ResNet18) ---")
     try:

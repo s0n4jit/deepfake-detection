@@ -3,18 +3,17 @@ import torch
 import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
-from app.config import CNN_MODEL_PATH
 
 # Set device to CPU for production deployment
 device = torch.device("cpu")
 
-# Model cache to store loaded models in memory
+# Model cache to store loaded ResNet18 models in memory
 _loaded_models = {}
 DEFAULT_MODEL = "cnn_model_v1.pt"
 
 def load_model_from_file(model_filename: str):
     """
-    Dynamically loads and instantiates the model from the models folder based on state_dict inspection.
+    Dynamically loads and instantiates the ResNet18 model from the models folder.
     """
     models_dir = "app/models"
     model_path = os.path.join(models_dir, model_filename)
@@ -23,28 +22,16 @@ def load_model_from_file(model_filename: str):
         
     state_dict = torch.load(model_path, map_location=device)
     
-    # Detect model type from state_dict keys
-    is_efficientnet = any(k.startswith("features.") for k in state_dict.keys())
-    
-    if is_efficientnet:
-        print(f"[{model_filename}] Detected EfficientNet-B0 state_dict. Instantiating...")
-        model = models.efficientnet_b0()
-        num_features = model.classifier[1].in_features
-        model.classifier = nn.Sequential(
+    # Always load ResNet18
+    model = models.resnet18()
+    num_features = model.fc.in_features
+    if "fc.1.weight" in state_dict:
+        model.fc = nn.Sequential(
             nn.Dropout(p=0.0),
             nn.Linear(num_features, 2)
         )
     else:
-        print(f"[{model_filename}] Detected ResNet18 state_dict. Instantiating...")
-        model = models.resnet18()
-        num_features = model.fc.in_features
-        if "fc.1.weight" in state_dict:
-            model.fc = nn.Sequential(
-                nn.Dropout(p=0.0),
-                nn.Linear(num_features, 2)
-            )
-        else:
-            model.fc = nn.Linear(num_features, 2)
+        model.fc = nn.Linear(num_features, 2)
             
     model.load_state_dict(state_dict)
     model.to(device)
@@ -62,21 +49,20 @@ def get_cnn_model(model_filename: str = None):
         try:
             _loaded_models[model_filename] = load_model_from_file(model_filename)
         except Exception as e:
-            # If default fails, raise error. Otherwise, fallback to default.
             if model_filename == DEFAULT_MODEL:
-                raise RuntimeError(f"Failed to load default CNN model. Error: {e}")
+                raise RuntimeError(f"Failed to load default ResNet18 model. Error: {e}")
             print(f"Error loading {model_filename}: {e}. Falling back to default.")
             return get_cnn_model(DEFAULT_MODEL)
             
     return _loaded_models[model_filename]
 
-# Pre-load default model on startup to fail-fast if something is broken
+# Pre-load default model on startup to fail-fast
 try:
     get_cnn_model(DEFAULT_MODEL)
 except Exception as e:
     raise RuntimeError(f"Startup check failed: default model loading failed. Error: {e}")
 
-# Preprocessing transforms for ResNet18 / EfficientNet
+# Preprocessing transforms for ResNet18
 normalize = transforms.Normalize(
     mean=[0.485, 0.456, 0.406],
     std=[0.229, 0.224, 0.225]
@@ -90,7 +76,7 @@ cnn_transform = transforms.Compose([
 def predict_cnn(face_crop, model_filename: str = None):
     """
     Given a cropped face image (numpy BGR format), preprocess it,
-    run the forward pass of selected CNN model on CPU, and return verdict + confidence.
+    run the forward pass of selected ResNet18 model on CPU, and return verdict + confidence.
     """
     # Fetch appropriate model
     model = get_cnn_model(model_filename)

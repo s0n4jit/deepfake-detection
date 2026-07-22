@@ -78,28 +78,13 @@ async def health_check():
 
 @app.get("/api/models", response_model=ModelsInfoResponse)
 async def get_models_info(model_file: Optional[str] = None):
-    from app.pipelines.cnn_pipeline import get_cnn_model
-    model = get_cnn_model(model_file)
-    backbone_class = model.__class__.__name__
     requested_file = model_file or "cnn_model_v1.pt"
-    
-    if "EfficientNet" in backbone_class:
-        backbone_name = "EfficientNet-B0"
-        version_str = "cnn_v2"
-        train_acc = 0.9840
-        test_acc = 0.7645
-    else:
-        backbone_name = "ResNet18"
-        version_str = "cnn_v1"
-        train_acc = 0.9929
-        test_acc = 0.8347
-        
     return {
         "cnn": {
-            "name": f"CNN Pipeline ({backbone_name})",
+            "name": "CNN Pipeline (ResNet18)",
             "type": f"Deep Transfer Learning ({requested_file})",
-            "train_accuracy": train_acc,
-            "test_accuracy": test_acc,
+            "train_accuracy": 0.9929,
+            "test_accuracy": 0.8347,
             "version": requested_file
         }
     }

@@ -17,12 +17,55 @@ document.addEventListener("DOMContentLoaded", () => {
     const verdictConfidence = document.getElementById("verdict-confidence");
     const valCnn = document.getElementById("val-cnn");
     const modelVersionChip = document.getElementById("model-version-chip");
-    const cnnModelNameLabel = document.getElementById("cnn-model-name-label");
-    const modelSelect = document.getElementById("model-select");
+    
+    // Sidebar elements
+    const themeToggleBtn = document.getElementById("theme-toggle-btn");
+    const customDropdown = document.getElementById("custom-dropdown");
+    const dropdownTrigger = document.getElementById("dropdown-trigger");
+    const dropdownMenu = document.getElementById("dropdown-menu");
+    const selectedModelName = document.getElementById("selected-model-name");
+
+    // Spec card elements
+    const specPipeline = document.getElementById("spec-pipeline");
+    const specType = document.getElementById("spec-type");
+    const specTrainAcc = document.getElementById("spec-train-acc");
+    const specTestAcc = document.getElementById("spec-test-acc");
 
     let selectedFile = null;
     let selectedModel = "cnn_model_v1.pt"; // Default model filename
     let detectedBox = null;     // Bounding box from API response
+
+    // 1. Theme Toggle System
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    document.documentElement.setAttribute("data-theme", savedTheme);
+    updateThemeUI(savedTheme);
+
+    themeToggleBtn.addEventListener("click", () => {
+        const currentTheme = document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+        updateThemeUI(newTheme);
+    });
+
+    function updateThemeUI(theme) {
+        if (theme === "dark") {
+            themeToggleBtn.innerHTML = `<span class="theme-icon">☀</span><span class="theme-text">LIGHT MODE</span>`;
+        } else {
+            themeToggleBtn.innerHTML = `<span class="theme-icon">🌙</span><span class="theme-text">DARK MODE</span>`;
+        }
+    }
+
+    // 2. Custom Dropdown Logic
+    dropdownTrigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        customDropdown.classList.toggle("open");
+    });
+
+    // Close dropdown on click outside
+    document.addEventListener("click", () => {
+        customDropdown.classList.remove("open");
+    });
 
     // Fetch and populate model details dynamically
     async function loadModelInfo(modelFile = null) {
@@ -32,8 +75,14 @@ document.addEventListener("DOMContentLoaded", () => {
             if (response.ok) {
                 const data = await response.json();
                 if (data.cnn) {
-                    modelVersionChip.innerText = data.cnn.version || "cnn_v1";
-                    cnnModelNameLabel.innerText = data.cnn.name;
+                    modelVersionChip.innerText = data.cnn.version || "cnn_model_v1.pt";
+                    selectedModelName.innerText = data.cnn.version || "cnn_model_v1.pt";
+                    
+                    // Populate side specs card
+                    specPipeline.innerText = data.cnn.name;
+                    specType.innerText = data.cnn.type;
+                    specTrainAcc.innerText = `${(data.cnn.train_accuracy * 100).toFixed(2)}%`;
+                    specTestAcc.innerText = `${(data.cnn.test_accuracy * 100).toFixed(2)}%`;
                 }
             }
         } catch (error) {
@@ -46,15 +95,26 @@ document.addEventListener("DOMContentLoaded", () => {
             const response = await fetch("/api/available-models");
             if (response.ok) {
                 const data = await response.json();
-                modelSelect.innerHTML = "";
+                dropdownMenu.innerHTML = "";
                 data.models.forEach(modelFile => {
-                    const opt = document.createElement("option");
-                    opt.value = modelFile;
-                    opt.innerText = modelFile;
+                    const item = document.createElement("div");
+                    item.className = "dropdown-item";
                     if (modelFile === selectedModel) {
-                        opt.selected = true;
+                        item.classList.add("selected");
                     }
-                    modelSelect.appendChild(opt);
+                    item.innerText = modelFile;
+                    item.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        selectedModel = modelFile;
+                        
+                        // Highlight selected
+                        document.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("selected"));
+                        item.classList.add("selected");
+                        
+                        customDropdown.classList.remove("open");
+                        loadModelInfo(selectedModel);
+                    });
+                    dropdownMenu.appendChild(item);
                 });
             }
         } catch (error) {
@@ -67,12 +127,6 @@ document.addEventListener("DOMContentLoaded", () => {
         await loadAvailableModels();
         await loadModelInfo(selectedModel);
     })();
-
-    // Listen to model select changes
-    modelSelect.addEventListener("change", (e) => {
-        selectedModel = e.target.value;
-        loadModelInfo(selectedModel);
-    });
 
     // Handle Drag & Drop behavior
     dropZone.addEventListener("dragover", (e) => {
@@ -94,7 +148,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Handle Click behavior to trigger input
     dropZone.addEventListener("click", (e) => {
-        // Prevent click trigger if clicking preview image or canvas
         if (e.target !== dropZone && e.target !== uploadPrompt && !e.target.classList.contains("browse-link")) {
             return;
         }
@@ -243,10 +296,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const h = box.h * scaleY;
 
         const ctx = scanCanvas.getContext("2d");
-        ctx.strokeStyle = "#2C5F7C"; // Steel Blue Accent
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = "var(--accent)"; // Color matching theme accent
+        ctx.lineWidth = 2;
         
-        // Draw Corner Brackets (Camera Focus Reticle style)
+        // Draw Corner Brackets
         const len = Math.min(w, h) * 0.15; // 15% length
         
         ctx.beginPath();
@@ -280,7 +333,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Helper to display errorsFact
+    // Helper to display errors
     function showError(message) {
         errorText.innerText = message;
         errorBanner.style.display = "block";

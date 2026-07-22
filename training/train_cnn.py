@@ -11,6 +11,11 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, models
 from PIL import Image
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
+import cv2
+import dlib
+
+# Initialize dlib frontal face detector
+detector = dlib.get_frontal_face_detector()
 
 # Configuration
 SPLIT_PATH = "dataset/split.json"
@@ -19,14 +24,14 @@ SPLIT_PATH = "dataset/split.json"
 parser = argparse.ArgumentParser(description="Train CNN model on GPU/CPU.")
 parser.add_argument("--device", type=str, default="auto", choices=["cuda", "cpu", "auto"],
                     help="Device to use for training (cuda, cpu, auto)")
-parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18", "efficientnet_b0"],
+parser.add_argument("--backbone", type=str, default="resnet18", choices=["resnet18"],
                     help="CNN backbone model to train")
 parser.add_argument("--unfreeze_blocks", type=int, default=0, choices=[0, 1, 2],
                     help="Number of blocks to unfreeze in backbone")
 parser.add_argument("--dropout", type=float, default=0.0, help="Dropout rate in classification head")
 parser.add_argument("--weight_decay", type=float, default=0.0, help="Weight decay for regularization")
 parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
-parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
+parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
 parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
 parser.add_argument("--output", type=str, default=None, help="Output path for state dict file")
 args, unknown = parser.parse_known_args()
@@ -61,13 +66,42 @@ class DeepfakeDataset(Dataset):
         img_path = rec["path"]
         label = 0 if rec["label"] == "REAL" else 1
         
-        # Load image via PIL to match torchvision transforms expectations
-        img = Image.open(img_path).convert("RGB")
+        # Load image via cv2
+        img = cv2.imread(img_path)
+        if img is None:
+            # Fallback to a zero tensor if image fails to load
+            img_pil = Image.fromarray(np.zeros((224, 224, 3), dtype=np.uint8))
+        else:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            rects = detector(gray, 1)
+            
+            if len(rects) > 0:
+                # Select largest face
+                rect = max(rects, key=lambda r: (r.right() - r.left()) * (r.bottom() - r.top()))
+                h, w = img.shape[:2]
+                
+                # Crop with 10% padding
+                l = max(0, rect.left() - int(0.1 * (rect.right() - rect.left())))
+                t = max(0, rect.top() - int(0.1 * (rect.bottom() - rect.top())))
+                r = min(w, rect.right() + int(0.1 * (rect.right() - rect.left())))
+                b = min(h, rect.bottom() + int(0.1 * (rect.bottom() - rect.top())))
+                
+                face_crop = img[t:b, l:r]
+                if face_crop.size > 0:
+                    face_crop = cv2.resize(face_crop, (256, 256))
+                    img_rgb = cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB)
+                    img_pil = Image.fromarray(img_rgb)
+                else:
+                    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    img_pil = Image.fromarray(img_rgb)
+            else:
+                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img_pil = Image.fromarray(img_rgb)
         
         if self.transform:
-            img = self.transform(img)
+            img_pil = self.transform(img_pil)
             
-        return img, label
+        return img_pil, label
 
 def train_cnn():
     BATCH_SIZE = args.batch_size
@@ -78,10 +112,7 @@ def train_cnn():
     if args.output:
         model_export_path = args.output
     else:
-        if args.backbone == "resnet18":
-            model_export_path = "app/models/cnn_model_v1.pt"
-        else:
-            model_export_path = "app/models/cnn_model_v2.pt"
+        model_export_path = "app/models/cnn_model_v1.pt"
 
     with open(SPLIT_PATH, "r") as f:
         split = json.load(f)
@@ -99,7 +130,8 @@ def train_cnn():
     train_transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(brightness=0.1, contrast=0.1),
+        transforms.RandomRotation(15),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
         transforms.ToTensor(),
         normalize
     ])
@@ -123,12 +155,22 @@ def train_cnn():
         num_features = model.fc.in_features
         
         # Replace classification head
-        if args.unfreeze_blocks > 0:
+        if args.unfreeze_blocks == 1:
             print("Unfreezing layer4 of ResNet18...")
             # Freeze all layers first
             for param in model.parameters():
                 param.requires_grad = False
             # Unfreeze layer4
+            for param in model.layer4.parameters():
+                param.requires_grad = True
+        elif args.unfreeze_blocks == 2:
+            print("Unfreezing layer3 and layer4 of ResNet18...")
+            # Freeze all layers first
+            for param in model.parameters():
+                param.requires_grad = False
+            # Unfreeze layer3 and layer4
+            for param in model.layer3.parameters():
+                param.requires_grad = True
             for param in model.layer4.parameters():
                 param.requires_grad = True
         else:
@@ -145,36 +187,6 @@ def train_cnn():
             )
         else:
             model.fc = nn.Linear(num_features, 2)
-            
-    elif args.backbone == "efficientnet_b0":
-        model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
-        num_features = model.classifier[1].in_features
-        
-        # Replace classification head
-        if args.unfreeze_blocks > 0:
-            print("Unfreezing features[8] of EfficientNet-B0...")
-            # Freeze all layers
-            for param in model.parameters():
-                param.requires_grad = False
-            # Unfreeze block 8 (features[8])
-            for param in model.features[8].parameters():
-                param.requires_grad = True
-        else:
-            for param in model.parameters():
-                param.requires_grad = False
-                
-        # Custom head with dropout
-        if args.dropout > 0.0:
-            print(f"Applying dropout of {args.dropout} to classification head...")
-            model.classifier = nn.Sequential(
-                nn.Dropout(p=args.dropout, inplace=True),
-                nn.Linear(num_features, 2)
-            )
-        else:
-            model.classifier = nn.Sequential(
-                nn.Dropout(p=0.0, inplace=True),
-                nn.Linear(num_features, 2)
-            )
             
     model = model.to(device)
     
@@ -391,7 +403,9 @@ def train_cnn():
     print(f"Saved run model comparison bar chart to {comparison_path}")
     
     # Export state dict for deployment
-    os.makedirs(os.path.dirname(model_export_path), exist_ok=True)
+    dir_name = os.path.dirname(model_export_path)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
     torch.save(model.state_dict(), model_export_path)
     print(f"Saved trained CNN model state dict to {model_export_path}")
 

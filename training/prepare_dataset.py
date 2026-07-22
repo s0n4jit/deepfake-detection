@@ -1,156 +1,79 @@
 import os
 import json
-import cv2
-import dlib
 import random
-import shutil
 
 # Paths
-DATASET_DIR = "dataset"
-PROCESSED_DIR = os.path.join(DATASET_DIR, "processed")
-SPLIT_PATH = os.path.join(DATASET_DIR, "split.json")
-SHAPE_PREDICTOR_PATH = "app/models/shape_predictor_68_face_landmarks.dat"
+NEW_DATASET_DIR = "dataset/archive/Dataset"
+SPLIT_PATH = "dataset/split.json"
 
-# Initialize dlib
-detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor(SHAPE_PREDICTOR_PATH)
-
-def is_frontal_face(shape):
-    """
-    Check if a face is frontal using the symmetry of cheek and nose tip landmarks.
-    Left cheek edge: landmark 0
-    Right cheek edge: landmark 16
-    Nose tip: landmark 30
-    """
-    x_left = shape.part(0).x
-    x_right = shape.part(16).x
-    x_nose = shape.part(30).x
+def prepare_new_dataset():
+    train_real_dir = os.path.join(NEW_DATASET_DIR, "Train", "Real")
+    train_fake_dir = os.path.join(NEW_DATASET_DIR, "Train", "Fake")
+    test_real_dir = os.path.join(NEW_DATASET_DIR, "Test", "Real")
+    test_fake_dir = os.path.join(NEW_DATASET_DIR, "Test", "Fake")
     
-    d_left = x_nose - x_left
-    d_right = x_right - x_nose
+    # Check if directories exist
+    for d in [train_real_dir, train_fake_dir, test_real_dir, test_fake_dir]:
+        if not os.path.exists(d):
+            print(f"Error: Directory not found: {d}")
+            return
+            
+    print("Listing files in directories...")
+    train_real_files = [os.path.join(train_real_dir, f) for f in os.listdir(train_real_dir) if f.endswith(('.jpg', '.jpeg', '.png'))]
+    train_fake_files = [os.path.join(train_fake_dir, f) for f in os.listdir(train_fake_dir) if f.endswith(('.jpg', '.jpeg', '.png'))]
+    test_real_files = [os.path.join(test_real_dir, f) for f in os.listdir(test_real_dir) if f.endswith(('.jpg', '.jpeg', '.png'))]
+    test_fake_files = [os.path.join(test_fake_dir, f) for f in os.listdir(test_fake_dir) if f.endswith(('.jpg', '.jpeg', '.png'))]
     
-    if d_left <= 0 or d_right <= 0:
-        return False
-        
-    ratio = min(d_left, d_right) / max(d_left, d_right)
-    return ratio >= 0.55
-
-def process_dataset(folders, max_images=None):
-    os.makedirs(PROCESSED_DIR, exist_ok=True)
+    print(f"Found in raw dataset:")
+    print(f"  Train Real: {len(train_real_files)}")
+    print(f"  Train Fake: {len(train_fake_files)}")
+    print(f"  Test Real: {len(test_real_files)}")
+    print(f"  Test Fake: {len(test_fake_files)}")
     
-    real_images = []
-    fake_images = []
-    
-    dropped_no_face = 0
-    dropped_non_frontal = 0
-    total_processed = 0
-    
-    for folder_name in folders:
-        folder_path = os.path.join(DATASET_DIR, folder_name, folder_name)
-        metadata_file = os.path.join(DATASET_DIR, f"metadata{int(folder_name[-2:] if folder_name[-2:].isdigit() else 0)}.json")
-        
-        if not os.path.exists(folder_path) or not os.path.exists(metadata_file):
-            print(f"Skipping folder {folder_name} (not found)")
-            continue
-            
-        print(f"Processing folder: {folder_name}...")
-        with open(metadata_file, "r") as f:
-            metadata = json.load(f)
-            
-        for filename in os.listdir(folder_path):
-            if not filename.endswith(".jpg"):
-                continue
-                
-            total_processed += 1
-            mp4_key = filename.replace(".jpg", ".mp4")
-            if mp4_key not in metadata:
-                continue
-                
-            label = metadata[mp4_key]["label"]
-            img_path = os.path.join(folder_path, filename)
-            img = cv2.imread(img_path)
-            if img is None:
-                continue
-                
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            rects = detector(gray, 1)
-            
-            if len(rects) == 0:
-                dropped_no_face += 1
-                continue
-                
-            # If multiple faces, pick the largest one
-            rect = max(rects, key=lambda r: (r.right() - r.left()) * (r.bottom() - r.top()))
-            
-            # Check landmarks for frontal pose
-            shape = predictor(gray, rect)
-            if not is_frontal_face(shape):
-                dropped_non_frontal += 1
-                continue
-                
-            # Crop face region with 10% padding
-            h, w = img.shape[:2]
-            l = max(0, rect.left() - int(0.1 * (rect.right() - rect.left())))
-            t = max(0, rect.top() - int(0.1 * (rect.bottom() - rect.top())))
-            r = min(w, rect.right() + int(0.1 * (rect.right() - rect.left())))
-            b = min(h, rect.bottom() + int(0.1 * (rect.bottom() - rect.top())))
-            
-            face_crop = img[t:b, l:r]
-            if face_crop.size == 0:
-                continue
-                
-            # Resize face crop to standard 256x256
-            face_crop = cv2.resize(face_crop, (256, 256))
-            
-            # Save cropped face to processed directory
-            dest_filename = f"{folder_name}_{filename}"
-            dest_path = os.path.join(PROCESSED_DIR, dest_filename)
-            cv2.imwrite(dest_path, face_crop)
-            
-            record = {"path": dest_path, "label": label}
-            if label == "REAL":
-                real_images.append(record)
-            else:
-                fake_images.append(record)
-                
-            if max_images and (len(real_images) + len(fake_images)) >= max_images:
-                break
-                
-    print(f"\nProcessing Complete:")
-    print(f"Total files checked: {total_processed}")
-    print(f"Dropped (no face): {dropped_no_face}")
-    print(f"Dropped (non-frontal): {dropped_non_frontal}")
-    print(f"Valid REAL images: {len(real_images)}")
-    print(f"Valid FAKE images: {len(fake_images)}")
-    
-    # Class Balancing (Undersampling)
-    min_count = min(len(real_images), len(fake_images))
-    print(f"Balancing classes to {min_count} samples each...")
+    # Settings for subsampling to be fast
+    num_train_per_class = 1500
+    num_test_per_class = 500
     
     random.seed(42)
-    balanced_real = random.sample(real_images, min_count)
-    balanced_fake = random.sample(fake_images, min_count)
     
-    balanced_dataset = balanced_real + balanced_fake
-    random.shuffle(balanced_dataset)
+    print(f"Subsampling {num_train_per_class} per class for training...")
+    selected_train_real = random.sample(train_real_files, num_train_per_class)
+    selected_train_fake = random.sample(train_fake_files, num_train_per_class)
     
-    # Train/Test Split (70/30)
-    split_idx = int(0.7 * len(balanced_dataset))
-    train_set = balanced_dataset[:split_idx]
-    test_set = balanced_dataset[split_idx:]
+    print(f"Subsampling {num_test_per_class} per class for testing...")
+    selected_test_real = random.sample(test_real_files, num_test_per_class)
+    selected_test_fake = random.sample(test_fake_files, num_test_per_class)
     
-    print(f"Train size: {len(train_set)}, Test size: {len(test_set)}")
+    # Create records
+    train_records = []
+    for p in selected_train_real:
+        train_records.append({"path": p, "label": "REAL"})
+    for p in selected_train_fake:
+        train_records.append({"path": p, "label": "FAKE"})
+        
+    test_records = []
+    for p in selected_test_real:
+        test_records.append({"path": p, "label": "REAL"})
+    for p in selected_test_fake:
+        test_records.append({"path": p, "label": "FAKE"})
+        
+    # Shuffle splits
+    random.shuffle(train_records)
+    random.shuffle(test_records)
     
-    # Save split configuration
+    print(f"Balanced Dataset Prepared:")
+    print(f"  Train Set: {len(train_records)} images")
+    print(f"  Test Set: {len(test_records)} images")
+    
     split_data = {
-        "train": train_set,
-        "test": test_set
+        "train": train_records,
+        "test": test_records
     }
+    
     with open(SPLIT_PATH, "w") as f:
         json.dump(split_data, f, indent=4)
         
-    print(f"Saved train/test split config to {SPLIT_PATH}")
+    print(f"Saved split config successfully to {SPLIT_PATH}")
 
 if __name__ == "__main__":
-    folders_to_use = ["DeepFake00", "DeepFake01", "DeepFake02", "DeepFake03", "DeepFake04"]
-    process_dataset(folders_to_use)
+    prepare_new_dataset()

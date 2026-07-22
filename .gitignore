@@ -4,16 +4,32 @@ __pycache__/
 *.pyo
 *.pyd
 .ipynb_checkpoints/
+.pytest_cache/
+
+# Datasets and models
 dataset/
 *.pkl
 *.pt
 *.pth
 *.dat
 *.log
+
+# OS generated files
 .DS_Store
+
+# Environment variables
 .env
 .env.*
 !.env.example
+
+# Temporary files
+temp/
+
+# LaTeX reports / Academic files
+report.tex
+references.bib
+
+# Docs to ignore (from original gitignore)
 docs/ML_deepfakeDetection_21m.pdf
 docs/PRD.md
 docs/architecture.md

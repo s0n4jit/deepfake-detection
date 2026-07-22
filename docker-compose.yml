@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: deepfake-api
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+    restart: unless-stopped
+    volumes:
+      # Optional: sync the app directory so you don't have to rebuild after every code change
+      - ./app:/app/app

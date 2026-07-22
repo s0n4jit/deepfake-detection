@@ -2,15 +2,15 @@
 
 This project evaluates and compares two distinct machine learning approaches for deepfake frontal-face image detection: a lightweight, classical feature-engineered pipeline (FAST keypoints + BRIEF descriptors + dlib region grouping + Random Forest) and a modern deep learning convolutional neural network (Transfer Learning on PyTorch ResNet18).
 
-It is built as a complete, single-container web application: **FastAPI backend** + **vanilla HTML/CSS/JS frontend**, ready for deployment to platforms like Render via Docker.
+It is built as a complete, single-container web application: **FastAPI backend** + **vanilla HTML/CSS/JS frontend**, ready for deployment to platforms like Render via Docker. Note that based on evaluation, the application currently serves the better-performing **CNN model** only.
 
 ---
 
 ## 🚀 Features & Architecture
 
-- **Dual Model Inference:** Evaluate uploaded frontal face images against both models simultaneously or individually.
+- **CNN Inference:** Evaluate uploaded frontal face images against a fine-tuned ResNet18 model.
 - **Shared Preprocessing:** Automated face detection and cropping using `dlib` with standardized 10% margins and 256x256 resizing.
-- **Explainable Metrics:**
+- **Explainable Metrics (Research Phase):**
   - **Classical:** Displays the relative feature importance of facial sub-regions (eyes, nose, mouth, eyebrows, whole face).
   - **CNN:** Generates gradient-based saliency overlay heatmaps highlighting what the neural network focuses on.
 - **Camera Focus Bounding Box:** Visual reticle overlays drawn dynamically on the frontend canvas.
@@ -68,19 +68,19 @@ If you want to re-run dataset processing or model training locally:
 ### 4. Running the Web App locally
 Start the ASGI Uvicorn server:
 ```powershell
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 ```
-Open **`http://localhost:8000`** in your browser.
+Open **`http://localhost:8080`** in your browser.
 
 ---
 
 ## 🐳 Dockerization & Deployment
 
-To build and run the container locally:
+To build and run the container locally using Docker Compose:
 ```bash
-docker build -t deepfake-detector .
-docker run -p 8080:8080 deepfake-detector
+docker-compose up --build -d
 ```
+The app will be available on **`http://localhost:8080`**.
 
 Deploy directly on Render as a **Web Service** with the **Docker** runtime. Render will parse the `Dockerfile` automatically and pull the model artifacts.
 
